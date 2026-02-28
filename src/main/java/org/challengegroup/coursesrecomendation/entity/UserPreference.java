@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class UserPreference {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -36,6 +37,6 @@ public class UserPreference {
     private String level;
 
     @Column(name = "minimum_rating")
-    private Double minimumRating;
-
+    @Builder.Default
+    private Double minimumRating = 4.0;
 }

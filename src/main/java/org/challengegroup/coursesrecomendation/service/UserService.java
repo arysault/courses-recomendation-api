@@ -33,6 +33,9 @@ public class UserService {
                 .name(user.getName())
                 .email(user.getEmail())
                 .role(user.getRole().name())
+                .isActive(user.getIsActive())
+                .createdAt(user.getCreatedAt())
+                .lastAccess(user.getLastAccess())
                 .hasPreferences(
                         userPreferenceRepository.existsByUserId(user.getId())
                 )
@@ -80,7 +83,7 @@ public class UserService {
         return toResponse(preference, courses);
     }
 
-    // GET /users/preferences → busca preferências + chama Python
+    // GET /users/preferences → busca preferências
     @Transactional(readOnly = true)
     public UserPreferenceResponse getPreferences(String email) {
         log.info("Getting preferences for: {}", email);
@@ -92,19 +95,7 @@ public class UserService {
                         "Preferences not found for user: " + email
                 ));
 
-        // Monta request com preferências salvas para chamar Python
-        UserPreferenceRequest request = new UserPreferenceRequest();
-        request.setLanguages(preference.getLanguages());
-        request.setTechnologies(preference.getTechnologies());
-        request.setPlatforms(preference.getPlatforms());
-        request.setLevel(preference.getLevel());
-        request.setMinimumRating(preference.getMinimumRating());
-
-        // Chama Python com as preferências salvas
-        List<CourseResponse> courses = pythonService
-                .getRecommendations(user.getId(), request);
-
-        return toResponse(preference, courses);
+        return toResponse(preference, null);
     }
 
     // Helper

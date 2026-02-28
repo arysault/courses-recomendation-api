@@ -15,7 +15,8 @@ public class CourseResponse {
     private String technology;
     private String description;
     private String instructor;
-    private String rating;
+    private Double rating;
+    private String platform;
     private String language;
     private String link;
     private Double score;
