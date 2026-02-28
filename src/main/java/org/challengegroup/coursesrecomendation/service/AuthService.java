@@ -31,14 +31,12 @@ public class AuthService {
     public AuthResponse register(RegisterRequest request) {
         log.info("Registering new user: {}", request.getEmail());
 
-        // Verifica se email já existe
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new IllegalArgumentException(
                     "Email already registered: " + request.getEmail()
             );
         }
 
-        // Cria usuário
         User user = User.builder()
                 .name(request.getName())
                 .email(request.getEmail().toLowerCase().trim())

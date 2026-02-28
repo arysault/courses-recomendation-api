@@ -42,21 +42,55 @@ public class UserService {
                 .build();
     }
 
-    // POST /users/preferences → salva + chama Python → retorna cursos
+    // POST → /users/preferences
     @Transactional
-    public UserPreferenceResponse createOrUpdatePreferences(
+    public UserPreferenceResponse createPreferences(
             String email,
             UserPreferenceRequest request) {
 
-        log.info("Saving preferences for: {}", email);
+        log.info("Creating preferences for: {}", email);
         User user = findUserByEmail(email);
 
-        // Busca preferência existente ou cria nova
+        // Se já existe → erro
+        if (userPreferenceRepository.existsByUserId(user.getId())) {
+            throw new IllegalArgumentException(
+                    "Preferences already exist for user: " + email
+            );
+        }
+
+        UserPreference preference = UserPreference.builder()
+                .user(user)
+                .languages(request.getLanguages())
+                .technologies(request.getTechnologies())
+                .platforms(request.getPlatforms())
+                .level(request.getLevel())
+                .minimumRating(request.getMinimumRating())
+                .build();
+
+        preference = userPreferenceRepository.save(preference);
+        log.info("Preferences created for userId: {}", user.getId());
+
+        List<CourseResponse> courses = pythonService
+                .getRecommendations(user.getId(), request);
+
+        return toResponse(preference, courses);
+    }
+
+    // PUT → /users/preferences
+    @Transactional
+    public UserPreferenceResponse updatePreferences(
+            String email,
+            UserPreferenceRequest request) {
+
+        log.info("Updating preferences for: {}", email);
+        User user = findUserByEmail(email);
+
         UserPreference preference = userPreferenceRepository
                 .findByUserId(user.getId())
-                .orElse(UserPreference.builder().user(user).build());
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Preferences not found for user: " + email
+                ));
 
-        // Atualiza campos (só atualiza o que veio preenchido)
         if (request.getLanguages() != null) {
             preference.setLanguages(request.getLanguages());
         }
@@ -73,15 +107,15 @@ public class UserService {
             preference.setMinimumRating(request.getMinimumRating());
         }
 
-        userPreferenceRepository.save(preference);
-        log.info("Preferences saved for userId: {}", user.getId());
+        preference = userPreferenceRepository.save(preference);
+        log.info("Preferences updated for userId: {}", user.getId());
 
-        // Chama Python e retorna cursos recomendados
         List<CourseResponse> courses = pythonService
                 .getRecommendations(user.getId(), request);
 
         return toResponse(preference, courses);
     }
+
 
     // GET /users/preferences → busca preferências
     @Transactional(readOnly = true)

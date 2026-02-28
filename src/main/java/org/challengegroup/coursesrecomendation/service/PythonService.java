@@ -84,7 +84,6 @@ public class PythonService {
         payload.put("user_id", userId);
         payload.put("limit", 10);
 
-        // Converte String "Java, Spring Boot" → List["Java", "Spring Boot"]
         if (preferences.getTechnologies() != null) {
             payload.put("technologies", splitToList(preferences.getTechnologies()));
         }
@@ -101,7 +100,6 @@ public class PythonService {
         return payload;
     }
 
-    // Converte "Java, Spring Boot" → ["Java", "Spring Boot"]
     private List<String> splitToList(String value) {
         return Arrays.stream(value.split(","))
                 .map(String::trim)
