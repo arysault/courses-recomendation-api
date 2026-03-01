@@ -15,11 +15,8 @@ public class UserPreferenceResponse {
 
     private Long id;
     private Long userId;
-    private String languages;       // ✅ String simples
-    private String technologies;    // ✅ String simples
-    private String platforms;       // ✅ String simples
-    private String level;
-    private Double minimumRating;
-
-    private List<CourseResponse> courses; // ← só courses é List
+    private String technology;
+    private List<String> conceptsOfInterest;
+    private List<String> languages;
+    private List<String> platforms;
 }

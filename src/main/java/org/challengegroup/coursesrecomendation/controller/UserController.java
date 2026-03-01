@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "Users", description = "Gerenciamento de usuários e preferências")
@@ -66,37 +67,29 @@ public class UserController {
                     @ApiResponse(responseCode = "401", description = "Token inválido ou expirado")
             }
     )
-    @PostMapping("/preferences")
-    public ResponseEntity<UserPreferenceResponse> savePreferences(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody UserPreferenceRequest request) {
+   @PostMapping("/preferences")
+   public ResponseEntity<UserPreferenceResponse> savePreferences(
+                @AuthenticationPrincipal UserDetails userDetails,
+                @RequestBody @Validated UserPreferenceRequest request) { // ← @Validated
         log.info("POST /users/preferences - {}", userDetails.getUsername());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(userService.createOrUpdatePreferences(
                         userDetails.getUsername(), request
                 ));
-    }
+        }
 
-    @Operation(
-            summary = "Atualizar preferências",
-            description = "Atualiza as preferências e retorna cursos novos recomendados",
-            responses = {
-                    @ApiResponse(responseCode = "200", description = "Preferências atualizadas e cursos retornados"),
-                    @ApiResponse(responseCode = "401", description = "Token inválido ou expirado")
-            }
-    )
-    @PutMapping("/preferences")
-    public ResponseEntity<UserPreferenceResponse> updatePreferences(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody UserPreferenceRequest request) {
+        @PutMapping("/preferences")
+        public ResponseEntity<UserPreferenceResponse> updatePreferences(
+                @AuthenticationPrincipal UserDetails userDetails,
+                @RequestBody @Validated UserPreferenceRequest request) { // ← @Validated
         log.info("PUT /users/preferences - {}", userDetails.getUsername());
         return ResponseEntity.ok(
                 userService.createOrUpdatePreferences(
                         userDetails.getUsername(), request
                 )
-        );
-    }
+    );
+}
 
     @Operation(
             summary = "Opções do wizard",

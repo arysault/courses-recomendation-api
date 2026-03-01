@@ -1,17 +1,22 @@
 package org.challengegroup.coursesrecomendation.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.challengegroup.coursesrecomendation.dto.*;
+import java.util.Arrays;
+import java.util.List;
+import org.challengegroup.coursesrecomendation.dto.UserMeResponse;
+import org.challengegroup.coursesrecomendation.dto.UserPreferenceRequest;
+import org.challengegroup.coursesrecomendation.dto.UserPreferenceResponse;
+import org.challengegroup.coursesrecomendation.entity.TechnologyConcept;
 import org.challengegroup.coursesrecomendation.entity.User;
 import org.challengegroup.coursesrecomendation.entity.UserPreference;
 import org.challengegroup.coursesrecomendation.exception.ResourceNotFoundException;
+import org.challengegroup.coursesrecomendation.repository.TechnologyConceptRepository;
 import org.challengegroup.coursesrecomendation.repository.UserPreferenceRepository;
 import org.challengegroup.coursesrecomendation.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -20,9 +25,11 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserPreferenceRepository userPreferenceRepository;
-    private final PythonService pythonService;
+    private final TechnologyConceptRepository technologyConceptRepository;
 
+    // ----------------------------------------------------------------
     // GET /users/me
+    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserMeResponse getMe(String email) {
         log.info("Getting user info: {}", email);
@@ -36,13 +43,13 @@ public class UserService {
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
                 .lastAccess(user.getLastAccess())
-                .hasPreferences(
-                        userPreferenceRepository.existsByUserId(user.getId())
-                )
+                .hasPreferences(userPreferenceRepository.existsByUserId(user.getId()))
                 .build();
     }
 
-    // POST /users/preferences → salva + chama Python → retorna cursos
+    // ----------------------------------------------------------------
+    // POST e PUT /users/preferences
+    // ----------------------------------------------------------------
     @Transactional
     public UserPreferenceResponse createOrUpdatePreferences(
             String email,
@@ -51,39 +58,80 @@ public class UserService {
         log.info("Saving preferences for: {}", email);
         User user = findUserByEmail(email);
 
-        // Busca preferência existente ou cria nova
+        // 1. Valida se a tecnologia existe no banco e já busca os conceitos dela
+        TechnologyConcept technologyConcept = technologyConceptRepository
+                .findByTechnology(request.getTechnology())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Technology not found: " + request.getTechnology()
+                ));
+
+        // 2. Valida máximo de 3 conceitos
+        if (request.getConceptsOfInterest() != null
+                && request.getConceptsOfInterest().size() > 3) {
+            throw new IllegalArgumentException(
+                    "Maximum 3 concepts of interest allowed"
+            );
+        }
+
+        // 3. Valida se os conceitos pertencem à tecnologia escolhida
+        if (request.getConceptsOfInterest() != null
+                && !request.getConceptsOfInterest().isEmpty()) {
+
+            List<String> validConcepts = technologyConcept.getConceptsList();
+
+            List<String> invalidConcepts = request.getConceptsOfInterest()
+                    .stream()
+                    .filter(concept -> !validConcepts.contains(concept))
+                    .toList();
+
+            if (!invalidConcepts.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Invalid concepts for technology '"
+                        + request.getTechnology()
+                        + "': " + invalidConcepts
+                );
+            }
+        }
+
+        // 4. Busca preferência existente ou cria nova
         UserPreference preference = userPreferenceRepository
                 .findByUserId(user.getId())
                 .orElse(UserPreference.builder().user(user).build());
 
-        // Atualiza campos (só atualiza o que veio preenchido)
+        // Technology → String (só uma)
+        preference.setTechnologies(request.getTechnology());
+
+        // Concepts → "REST API, Security, JPA" (TEXT no banco)
+        if (request.getConceptsOfInterest() != null) {
+            preference.setConceptsOfInterest(
+                    String.join(", ", request.getConceptsOfInterest())
+            );
+        }
+
+        // Languages → "English, Português" (TEXT no banco)
         if (request.getLanguages() != null) {
-            preference.setLanguages(request.getLanguages());
+            preference.setLanguages(
+                    String.join(", ", request.getLanguages())
+            );
         }
-        if (request.getTechnologies() != null) {
-            preference.setTechnologies(request.getTechnologies());
-        }
+
+        // Platforms → "Udemy, Coursera" (TEXT no banco)
         if (request.getPlatforms() != null) {
-            preference.setPlatforms(request.getPlatforms());
-        }
-        if (request.getLevel() != null) {
-            preference.setLevel(request.getLevel());
-        }
-        if (request.getMinimumRating() != null) {
-            preference.setMinimumRating(request.getMinimumRating());
+            preference.setPlatforms(
+                    String.join(", ", request.getPlatforms())
+            );
         }
 
         userPreferenceRepository.save(preference);
         log.info("Preferences saved for userId: {}", user.getId());
 
-        // Chama Python e retorna cursos recomendados
-        List<CourseResponse> courses = pythonService
-                .getRecommendations(user.getId(), request);
 
-        return toResponse(preference, courses);
+        return toResponse(preference);
     }
 
-    // GET /users/preferences → busca preferências
+    // ----------------------------------------------------------------
+    // GET /users/preferences
+    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserPreferenceResponse getPreferences(String email) {
         log.info("Getting preferences for: {}", email);
@@ -95,10 +143,14 @@ public class UserService {
                         "Preferences not found for user: " + email
                 ));
 
-        return toResponse(preference, null);
+        // GET não chama Python, retorna sem cursos
+        return toResponse(preference);
     }
 
-    // Helper
+    // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+
     private User findUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -106,19 +158,20 @@ public class UserService {
                 ));
     }
 
-    private UserPreferenceResponse toResponse(
-            UserPreference preference,
-            List<CourseResponse> courses) {
+    // Converte "REST API, Security" → ["REST API", "Security"]
+    private List<String> splitToList(String value) {
+        if (value == null || value.isBlank()) return null;
+        return Arrays.stream(value.split(",\\s*")).toList();
+    }
 
+    private UserPreferenceResponse toResponse(UserPreference preference) {
         return UserPreferenceResponse.builder()
                 .id(preference.getId())
                 .userId(preference.getUser().getId())
-                .languages(preference.getLanguages())
-                .technologies(preference.getTechnologies())
-                .platforms(preference.getPlatforms())
-                .level(preference.getLevel())
-                .minimumRating(preference.getMinimumRating())
-                .courses(courses)
+                .technology(preference.getTechnologies())
+                .conceptsOfInterest(splitToList(preference.getConceptsOfInterest()))
+                .languages(splitToList(preference.getLanguages()))
+                .platforms(splitToList(preference.getPlatforms()))
                 .build();
     }
 }

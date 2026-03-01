@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Data
 @Table(name = "user_preferences", indexes = {
@@ -33,10 +35,24 @@ public class UserPreference {
     @Column(name = "platforms", columnDefinition = "TEXT")
     private String platforms;
 
-    @Column(length = 50)
-    private String level;
+    @Column(name = "concepts_of_interest", columnDefinition = "TEXT")
+    private String conceptsOfInterest;
 
-    @Column(name = "minimum_rating")
-    @Builder.Default
-    private Double minimumRating = 4.0;
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    public void prePersist() {
+        LocalDateTime now = LocalDateTime.now();
+        this.createdAt = now;
+        this.updatedAt = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
 }

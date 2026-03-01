@@ -48,7 +48,6 @@ dependencies {
     // DB
     runtimeOnly 'org.postgresql:postgresql'
 
-    // ✅ Test - corrigido para Spring Boot 4.x
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'

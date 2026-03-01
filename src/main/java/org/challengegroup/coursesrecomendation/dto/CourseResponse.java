@@ -1,24 +1,31 @@
 package org.challengegroup.coursesrecomendation.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import lombok.Data;
-import lombok.NoArgsConstructor;
 
 @Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
 public class CourseResponse {
-    private Long id;
+
+    private Integer id;
     private String title;
     private String technology;
-    private String description;
+    private String platform;
     private String instructor;
     private Double rating;
-    private String platform;
     private String language;
     private String link;
+
+    private String description;
+
     private Double score;
-    private String reason;
+
+    @JsonProperty("final_score")
+    private Double finalScore;
+
+    @JsonProperty("colbert_score")
+    private Double colbertScore;
+
+    @JsonProperty("ontology_score")
+    private Double ontologyScore;
 }
