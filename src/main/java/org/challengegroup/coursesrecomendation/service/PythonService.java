@@ -147,8 +147,8 @@ public class PythonService {
         payload.put("user_id", userId);
         payload.put("limit",   TOP_N);
 
-        if (preferences.getTechnologies() != null) {
-            payload.put("technologies", splitToList(preferences.getTechnologies()));
+        if (preferences.getTechnology() != null) {
+            payload.put("technology", preferences.getTechnology());
         }
         if (preferences.getConceptsOfInterest() != null
                 && !preferences.getConceptsOfInterest().isEmpty()) {
@@ -164,13 +164,6 @@ public class PythonService {
         }
 
         return payload;
-    }
-
-    private List<String> splitToList(String value) {
-        return Arrays.stream(value.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .collect(Collectors.toList());
     }
 }
 

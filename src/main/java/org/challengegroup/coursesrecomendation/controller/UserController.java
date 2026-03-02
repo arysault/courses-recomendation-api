@@ -74,7 +74,7 @@ public class UserController {
         log.info("POST /users/preferences - {}", userDetails.getUsername());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(userService.createPreferences(
+                .body(userService.createOrUpdatePreferences(
                         userDetails.getUsername(), request
                 ));
         }
@@ -85,7 +85,7 @@ public class UserController {
                 @RequestBody @Validated UserPreferenceRequest request) { // ← @Validated
         log.info("PUT /users/preferences - {}", userDetails.getUsername());
         return ResponseEntity.ok(
-                userService.updatePreferences(
+                userService.createOrUpdatePreferences(
                         userDetails.getUsername(), request
                 )
     );

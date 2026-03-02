@@ -47,57 +47,65 @@ public class UserService {
                 .build();
     }
 
-    // POST → /users/preferences
+    // ----------------------------------------------------------------
+    // POST e PUT /users/preferences
+    // ----------------------------------------------------------------
     @Transactional
-    public UserPreferenceResponse createPreferences(
+    public UserPreferenceResponse createOrUpdatePreferences(
             String email,
             UserPreferenceRequest request) {
 
-        log.info("Creating preferences for: {}", email);
+        log.info("Saving preferences for: {}", email);
         User user = findUserByEmail(email);
 
-        // Se já existe → erro
-        if (userPreferenceRepository.existsByUserId(user.getId())) {
+        // 1. Valida se a tecnologia existe no banco e já busca os conceitos dela
+        TechnologyConcept technologyConcept = technologyConceptRepository
+                .findByTechnology(request.getTechnology())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Technology not found: " + request.getTechnology()
+                ));
+
+        // 2. Valida máximo de 3 conceitos
+        if (request.getConceptsOfInterest() != null
+                && request.getConceptsOfInterest().size() > 3) {
             throw new IllegalArgumentException(
-                    "Preferences already exist for user: " + email
+                    "Maximum 3 concepts of interest allowed"
             );
         }
 
-        UserPreference preference = UserPreference.builder()
-                .user(user)
-                .languages(request.getLanguages())
-                .technologies(request.getTechnologies())
-                .platforms(request.getPlatforms())
-                .level(request.getLevel())
-                .minimumRating(request.getMinimumRating())
-                .build();
+        // 3. Valida se os conceitos pertencem à tecnologia escolhida
+        if (request.getConceptsOfInterest() != null
+                && !request.getConceptsOfInterest().isEmpty()) {
 
-        preference = userPreferenceRepository.save(preference);
-        log.info("Preferences created for userId: {}", user.getId());
+            List<String> validConcepts = technologyConcept.getConceptsList();
 
-        List<CourseResponse> courses = pythonService
-                .getRecommendations(user.getId(), request);
+            List<String> invalidConcepts = request.getConceptsOfInterest()
+                    .stream()
+                    .filter(concept -> !validConcepts.contains(concept))
+                    .toList();
 
-        return toResponse(preference, courses);
-    }
+            if (!invalidConcepts.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "Invalid concepts for technology '"
+                        + request.getTechnology()
+                        + "': " + invalidConcepts
+                );
+            }
+        }
 
-    // PUT → /users/preferences
-    @Transactional
-    public UserPreferenceResponse updatePreferences(
-            String email,
-            UserPreferenceRequest request) {
-
-        log.info("Updating preferences for: {}", email);
-        User user = findUserByEmail(email);
-
+        // 4. Busca preferência existente ou cria nova
         UserPreference preference = userPreferenceRepository
                 .findByUserId(user.getId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Preferences not found for user: " + email
-                ));
+                .orElse(UserPreference.builder().user(user).build());
 
-        if (request.getLanguages() != null) {
-            preference.setLanguages(request.getLanguages());
+        // Technology → String (só uma)
+        preference.setTechnologies(request.getTechnology());
+
+        // Concepts → "REST API, Security, JPA" (TEXT no banco)
+        if (request.getConceptsOfInterest() != null) {
+            preference.setConceptsOfInterest(
+                    String.join(", ", request.getConceptsOfInterest())
+            );
         }
 
         // Languages → "English, Português" (TEXT no banco)
@@ -114,17 +122,16 @@ public class UserService {
             );
         }
 
-        preference = userPreferenceRepository.save(preference);
-        log.info("Preferences updated for userId: {}", user.getId());
+        userPreferenceRepository.save(preference);
+        log.info("Preferences saved for userId: {}", user.getId());
 
-        List<CourseResponse> courses = pythonService
-                .getRecommendations(user.getId(), request);
 
         return toResponse(preference);
     }
 
-
-    // GET /users/preferences → busca preferências
+    // ----------------------------------------------------------------
+    // GET /users/preferences
+    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserPreferenceResponse getPreferences(String email) {
         log.info("Getting preferences for: {}", email);
