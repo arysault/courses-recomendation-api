@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Builder
@@ -15,5 +16,5 @@ public class PreferenceOptionsResponse {
     private List<String> technologies;
     private List<String> platforms;
     private List<String> languages;
-    private List<String> levels;
+    private Map<String, List<String>> concepts; 
 }

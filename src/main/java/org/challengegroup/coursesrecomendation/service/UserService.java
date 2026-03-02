@@ -1,17 +1,22 @@
 package org.challengegroup.coursesrecomendation.service;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.challengegroup.coursesrecomendation.dto.*;
+import java.util.Arrays;
+import java.util.List;
+import org.challengegroup.coursesrecomendation.dto.UserMeResponse;
+import org.challengegroup.coursesrecomendation.dto.UserPreferenceRequest;
+import org.challengegroup.coursesrecomendation.dto.UserPreferenceResponse;
+import org.challengegroup.coursesrecomendation.entity.TechnologyConcept;
 import org.challengegroup.coursesrecomendation.entity.User;
 import org.challengegroup.coursesrecomendation.entity.UserPreference;
 import org.challengegroup.coursesrecomendation.exception.ResourceNotFoundException;
+import org.challengegroup.coursesrecomendation.repository.TechnologyConceptRepository;
 import org.challengegroup.coursesrecomendation.repository.UserPreferenceRepository;
 import org.challengegroup.coursesrecomendation.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -20,9 +25,11 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final UserPreferenceRepository userPreferenceRepository;
-    private final PythonService pythonService;
+    private final TechnologyConceptRepository technologyConceptRepository;
 
+    // ----------------------------------------------------------------
     // GET /users/me
+    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserMeResponse getMe(String email) {
         log.info("Getting user info: {}", email);
@@ -36,9 +43,7 @@ public class UserService {
                 .isActive(user.getIsActive())
                 .createdAt(user.getCreatedAt())
                 .lastAccess(user.getLastAccess())
-                .hasPreferences(
-                        userPreferenceRepository.existsByUserId(user.getId())
-                )
+                .hasPreferences(userPreferenceRepository.existsByUserId(user.getId()))
                 .build();
     }
 
@@ -94,17 +99,19 @@ public class UserService {
         if (request.getLanguages() != null) {
             preference.setLanguages(request.getLanguages());
         }
-        if (request.getTechnologies() != null) {
-            preference.setTechnologies(request.getTechnologies());
+
+        // Languages → "English, Português" (TEXT no banco)
+        if (request.getLanguages() != null) {
+            preference.setLanguages(
+                    String.join(", ", request.getLanguages())
+            );
         }
+
+        // Platforms → "Udemy, Coursera" (TEXT no banco)
         if (request.getPlatforms() != null) {
-            preference.setPlatforms(request.getPlatforms());
-        }
-        if (request.getLevel() != null) {
-            preference.setLevel(request.getLevel());
-        }
-        if (request.getMinimumRating() != null) {
-            preference.setMinimumRating(request.getMinimumRating());
+            preference.setPlatforms(
+                    String.join(", ", request.getPlatforms())
+            );
         }
 
         preference = userPreferenceRepository.save(preference);
@@ -113,7 +120,7 @@ public class UserService {
         List<CourseResponse> courses = pythonService
                 .getRecommendations(user.getId(), request);
 
-        return toResponse(preference, courses);
+        return toResponse(preference);
     }
 
 
@@ -129,10 +136,14 @@ public class UserService {
                         "Preferences not found for user: " + email
                 ));
 
-        return toResponse(preference, null);
+        // GET não chama Python, retorna sem cursos
+        return toResponse(preference);
     }
 
-    // Helper
+    // ----------------------------------------------------------------
+    // Helpers
+    // ----------------------------------------------------------------
+
     private User findUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
@@ -140,19 +151,20 @@ public class UserService {
                 ));
     }
 
-    private UserPreferenceResponse toResponse(
-            UserPreference preference,
-            List<CourseResponse> courses) {
+    // Converte "REST API, Security" → ["REST API", "Security"]
+    private List<String> splitToList(String value) {
+        if (value == null || value.isBlank()) return null;
+        return Arrays.stream(value.split(",\\s*")).toList();
+    }
 
+    private UserPreferenceResponse toResponse(UserPreference preference) {
         return UserPreferenceResponse.builder()
                 .id(preference.getId())
                 .userId(preference.getUser().getId())
-                .languages(preference.getLanguages())
-                .technologies(preference.getTechnologies())
-                .platforms(preference.getPlatforms())
-                .level(preference.getLevel())
-                .minimumRating(preference.getMinimumRating())
-                .courses(courses)
+                .technology(preference.getTechnologies())
+                .conceptsOfInterest(splitToList(preference.getConceptsOfInterest()))
+                .languages(splitToList(preference.getLanguages()))
+                .platforms(splitToList(preference.getPlatforms()))
                 .build();
     }
 }
