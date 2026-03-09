@@ -26,10 +26,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final UserPreferenceRepository userPreferenceRepository;
     private final TechnologyConceptRepository technologyConceptRepository;
-
-    // ----------------------------------------------------------------
     // GET /users/me
-    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserMeResponse getMe(String email) {
         log.info("Getting user info: {}", email);
@@ -47,9 +44,7 @@ public class UserService {
                 .build();
     }
 
-    // ----------------------------------------------------------------
     // POST e PUT /users/preferences
-    // ----------------------------------------------------------------
     @Transactional
     public UserPreferenceResponse createOrUpdatePreferences(
             String email,
@@ -58,14 +53,12 @@ public class UserService {
         log.info("Saving preferences for: {}", email);
         User user = findUserByEmail(email);
 
-        // 1. Valida se a tecnologia existe no banco e já busca os conceitos dela
         TechnologyConcept technologyConcept = technologyConceptRepository
                 .findByTechnology(request.getTechnology())
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Technology not found: " + request.getTechnology()
                 ));
 
-        // 2. Valida máximo de 3 conceitos
         if (request.getConceptsOfInterest() != null
                 && request.getConceptsOfInterest().size() > 3) {
             throw new IllegalArgumentException(
@@ -73,7 +66,6 @@ public class UserService {
             );
         }
 
-        // 3. Valida se os conceitos pertencem à tecnologia escolhida
         if (request.getConceptsOfInterest() != null
                 && !request.getConceptsOfInterest().isEmpty()) {
 
@@ -93,29 +85,24 @@ public class UserService {
             }
         }
 
-        // 4. Busca preferência existente ou cria nova
         UserPreference preference = userPreferenceRepository
                 .findByUserId(user.getId())
                 .orElse(UserPreference.builder().user(user).build());
 
-        // Technology → String (só uma)
         preference.setTechnologies(request.getTechnology());
 
-        // Concepts → "REST API, Security, JPA" (TEXT no banco)
         if (request.getConceptsOfInterest() != null) {
             preference.setConceptsOfInterest(
                     String.join(", ", request.getConceptsOfInterest())
             );
         }
 
-        // Languages → "English, Português" (TEXT no banco)
         if (request.getLanguages() != null) {
             preference.setLanguages(
                     String.join(", ", request.getLanguages())
             );
         }
 
-        // Platforms → "Udemy, Coursera" (TEXT no banco)
         if (request.getPlatforms() != null) {
             preference.setPlatforms(
                     String.join(", ", request.getPlatforms())
@@ -129,9 +116,7 @@ public class UserService {
         return toResponse(preference);
     }
 
-    // ----------------------------------------------------------------
     // GET /users/preferences
-    // ----------------------------------------------------------------
     @Transactional(readOnly = true)
     public UserPreferenceResponse getPreferences(String email) {
         log.info("Getting preferences for: {}", email);
@@ -143,14 +128,10 @@ public class UserService {
                         "Preferences not found for user: " + email
                 ));
 
-        // GET não chama Python, retorna sem cursos
         return toResponse(preference);
     }
 
-    // ----------------------------------------------------------------
     // Helpers
-    // ----------------------------------------------------------------
-
     private User findUserByEmail(String email) {
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException(
